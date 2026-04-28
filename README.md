@@ -18,7 +18,7 @@ A simple point-of-sale system built with:
 git clone https://github.com/HaydenHuck/POS.git
 
 2. Navigate into the project:
-cd flamingo-pos
+cd POS
 
 3. Install dependencies:
 npm install
