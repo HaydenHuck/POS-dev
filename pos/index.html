@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POS</title>
+    <link rel="stylesheet" href="cashier.css">
+</head>
+<body>
+
+    <header>
+        <h1>POS</h1>
+    </header>
+
+    <main>
+        <section class="menu-section">
+            <h2>Menu</h2>
+            <div id="menuItems" class="menu-grid"></div>
+        </section>
+
+        <section class="order-section">
+            <h2>Current Order</h2>
+            <label for="customerName">Customer Name</label>
+            <input type="text" id="customerName" placeholder="Enter customer name">
+            
+            <div id="orderItems"></div>
+
+            <div class="totals">
+                <p>Subtotal: $<span id="subtotal">0.00</span></p>
+                <p>Tax: $<span id="tax">0.00</span></p>
+                <h3>Total: $<span id="total">0.00</span></h3>
+            </div>
+
+            <button id="submitOrder">Submit Order</button>
+            <button id="clearOrder">Clear Order</button>
+
+            <p id="message"></p>
+        </section>
+    </main>
+
+    <script src="cashier.js"></script>
+</body>
+</html>

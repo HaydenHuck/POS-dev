@@ -1,0 +1,79 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #111827;
+    color: white;
+}
+
+header {
+    background-color: #000;
+    text-align: center;
+    padding: 20px;
+}
+
+main {
+    padding: 30px;
+}
+
+h2 {
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+#ordersContainer {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+}
+
+.order-card {
+    background-color: #f8f9fa;
+    color: #222;
+    padding: 20px;
+    border-radius: 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.order-card h3 {
+    margin-bottom: 10px;
+}
+
+.items {
+    margin-top: 15px;
+    background-color: #e9ecef;
+    padding: 10px;
+    border-radius: 8px;
+}
+
+section {
+    margin-bottom: 35px;
+}
+
+.orders-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+}
+
+.complete-btn {
+    width: 100%;
+    margin-top: 15px;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    background-color: #2e8b57;
+    color: white;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+@media (max-width: 900px) {
+    .orders-grid {
+        grid-template-columns: 1fr;
+    }
+}
