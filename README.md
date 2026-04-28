@@ -12,3 +12,16 @@ A simple point-of-sale system built with:
 - Submit orders
 - Kitchen display screen
 - Order completion tracking
+
+### How to Run
+1. Clone the repository:
+git clone https://github.com/HaydenHuck/POS.git
+
+2. Navigate into the project:
+cd flamingo-pos
+
+3. Install dependencies:
+npm install
+
+4. Start the server:
+node server.js
