@@ -25,3 +25,9 @@ npm install
 
 4. Start the server:
 node server.js
+
+5. View the webpages:
+
+In your browser open http://localhost:3000/ to view the POS
+
+In another tab open http://localhost:3000/kitchen.html to view the orders for the kitchen
