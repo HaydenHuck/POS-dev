@@ -5,6 +5,7 @@ A simple point-of-sale system built with:
 - CSS
 - JavaScript
 - Node.js (Express)
+- SQLite
 
 ## Features
 - Add/remove items
@@ -12,6 +13,7 @@ A simple point-of-sale system built with:
 - Submit orders
 - Kitchen display screen
 - Order completion tracking
+- Persistent SQLite order storage using relational `orders` and `order_items` tables
 
 ### How to Run
 1. Clone the repository:
@@ -25,6 +27,10 @@ npm install
 
 4. Start the server:
 node server.js
+
+The server stores orders in `orders.db` using SQLite. If an `orders.json` file exists, those orders are imported into SQLite on startup. Older SQLite databases that stored order items as JSON are automatically migrated to the relational table layout.
+
+To use a different database file, start the server with `ORDERS_DB_PATH=path/to/orders.db`.
 
 5. View the webpages:
 
