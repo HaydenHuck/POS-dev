@@ -8,14 +8,25 @@
 <body>
 
     <header>
-        <h1>Restaurant Backend</h1>
+        <h1>Kitchen Orders</h1>
         <p>Incoming customer orders</p>
+        <p id="kitchenMessage" class="screen-message" role="status"></p>
     </header>
 
-    <main>
+    <main class="kitchen-board">
         <section>
             <h2>New Orders</h2>
             <div id="newOrders" class="orders-grid"></div>
+        </section>
+
+        <section>
+            <h2>In Progress</h2>
+            <div id="inProgressOrders" class="orders-grid"></div>
+        </section>
+
+        <section>
+            <h2>Ready</h2>
+            <div id="readyOrders" class="orders-grid"></div>
         </section>
 
         <section>

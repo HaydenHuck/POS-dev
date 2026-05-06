@@ -12,7 +12,7 @@ A simple point-of-sale system built with:
 - Calculate totals
 - Submit orders
 - Kitchen display screen
-- Order completion tracking
+- Kitchen order status flow: `New` -> `In Progress` -> `Ready` -> `Completed`
 - Persistent SQLite order storage using relational `orders` and `order_items` tables
 
 ### How to Run

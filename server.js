@@ -9,6 +9,14 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static("pos"));
 
+const ORDER_STATUSES = ["New", "In Progress", "Ready", "Completed"];
+const STATUS_TRANSITIONS = {
+    New: ["In Progress"],
+    "In Progress": ["Ready"],
+    Ready: ["Completed"],
+    Completed: []
+};
+
 const jsonOrdersPath = path.join(__dirname, "orders.json");
 const dbPath = process.env.ORDERS_DB_PATH || path.join(__dirname, "orders.db");
 const db = new DatabaseSync(dbPath);
@@ -97,9 +105,14 @@ function prepareOrderStatements() {
             WHERE order_id = ?
             ORDER BY order_items.id ASC
         `),
-        completeOrder: db.prepare(`
+        selectOrderStatus: db.prepare(`
+            SELECT status
+            FROM orders
+            WHERE id = ?
+        `),
+        updateOrderStatus: db.prepare(`
             UPDATE orders
-            SET status = 'Completed'
+            SET status = ?
             WHERE id = ?
         `)
     };
@@ -180,6 +193,58 @@ const statements = prepareOrderStatements();
 
 migrateJsonOrders();
 
+function changeOrderStatus(orderId, nextStatus) {
+    if (!Number.isFinite(orderId)) {
+        return {
+            statusCode: 400,
+            message: "Order id must be a number."
+        };
+    }
+
+    if (!ORDER_STATUSES.includes(nextStatus)) {
+        return {
+            statusCode: 400,
+            message: `Status must be one of: ${ORDER_STATUSES.join(", ")}.`
+        };
+    }
+
+    const order = statements.selectOrderStatus.get(orderId);
+
+    if (!order) {
+        return {
+            statusCode: 404,
+            message: "Order not found."
+        };
+    }
+
+    if (order.status === nextStatus) {
+        return {
+            statusCode: 200,
+            message: `Order is already ${nextStatus}.`
+        };
+    }
+
+    const allowedNextStatuses = STATUS_TRANSITIONS[order.status] || [];
+
+    if (!allowedNextStatuses.includes(nextStatus)) {
+        return {
+            statusCode: 409,
+            message: `Order cannot move from ${order.status} to ${nextStatus}.`
+        };
+    }
+
+    statements.updateOrderStatus.run(nextStatus, orderId);
+
+    return {
+        statusCode: 200,
+        message: `Order moved to ${nextStatus}.`
+    };
+}
+
+function sendStatusResponse(res, result) {
+    res.status(result.statusCode).json({ message: result.message });
+}
+
 app.post("/api/order", (req, res) => {
     const order = req.body;
 
@@ -213,15 +278,18 @@ app.get("/api/orders", (req, res) => {
     res.json(orders);
 });
 
+app.patch("/api/orders/:id/status", (req, res) => {
+    const orderId = Number(req.params.id);
+    const result = changeOrderStatus(orderId, req.body.status);
+
+    sendStatusResponse(res, result);
+});
+
 app.patch("/api/orders/:id/complete", (req, res) => {
     const orderId = Number(req.params.id);
-    const result = statements.completeOrder.run(orderId);
+    const result = changeOrderStatus(orderId, "Completed");
 
-    if (result.changes === 0) {
-        return res.status(404).json({ message: "Order not found." });
-    }
-
-    res.json({ message: "Order marked as completed." });
+    sendStatusResponse(res, result);
 });
 
 app.listen(PORT, () => {
