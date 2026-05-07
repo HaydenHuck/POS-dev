@@ -7,35 +7,181 @@
     <link rel="stylesheet" href="cashier.css">
 </head>
 <body>
-
-    <header>
-        <h1>POS</h1>
+    <header class="topbar">
+        <div>
+            <p class="eyebrow">CAFE</p>
+            <h1>POS Register</h1>
+        </div>
+        <nav>
+            <a href="/">Cashier</a>
+            <a href="/kitchen.html">Kitchen</a>
+        </nav>
     </header>
 
-    <main>
-        <section class="menu-section">
-            <h2>Menu</h2>
-            <div id="menuItems" class="menu-grid"></div>
-        </section>
-
-        <section class="order-section">
-            <h2>Current Order</h2>
-            <label for="customerName">Customer Name</label>
-            <input type="text" id="customerName" placeholder="Enter customer name">
-            
-            <div id="orderItems"></div>
-
-            <div class="totals">
-                <p>Subtotal: $<span id="subtotal">0.00</span></p>
-                <p>Tax: $<span id="tax">0.00</span></p>
-                <h3>Total: $<span id="total">0.00</span></h3>
+    <main class="app-shell">
+        <section class="cashier-workspace" aria-labelledby="cashierTitle">
+            <div class="workspace-header">
+                <div>
+                    <h2 id="cashierTitle">Cashier</h2>
+                    <p id="message" role="status"></p>
+                </div>
+                <span id="menuCount" class="subtle-badge">0 products</span>
             </div>
 
-            <button id="submitOrder">Submit Order</button>
-            <button id="clearOrder">Clear Order</button>
+            <div class="sales-grid">
+                <section class="panel menu-section">
+                    <div class="section-header">
+                        <h3>Menu</h3>
+                    </div>
+                    <div id="menuItems" class="menu-grid"></div>
+                </section>
 
-            <p id="message"></p>
+                <section class="panel order-section">
+                    <div class="section-header">
+                        <h3>Current Order</h3>
+                    </div>
+
+                    <label for="customerName">Customer Name</label>
+                    <input type="text" id="customerName" placeholder="Guest">
+
+                    <div id="orderItems" class="order-list"></div>
+
+                    <div class="totals">
+                        <p>Subtotal <span>$<span id="subtotal">0.00</span></span></p>
+                        <p>Tax <span>$<span id="tax">0.00</span></span></p>
+                        <h3>Total <span>$<span id="total">0.00</span></span></h3>
+                    </div>
+
+                    <button id="submitOrder" class="primary-btn">Submit Order</button>
+                    <button id="clearOrder" class="secondary-btn">Clear Order</button>
+                </section>
+            </div>
         </section>
+
+        <aside class="admin-dashboard" aria-labelledby="adminTitle">
+            <div class="admin-header">
+                <div>
+                    <p class="eyebrow">Operations</p>
+                    <h2 id="adminTitle">Admin Dashboard</h2>
+                </div>
+                <span class="subtle-badge">SQLite</span>
+            </div>
+
+            <section class="dashboard-panel">
+                <div class="section-header">
+                    <h3>Analytics</h3>
+                </div>
+
+                <div class="metrics-grid">
+                    <article class="metric-card">
+                        <span>Total Orders</span>
+                        <strong id="analyticsTotalOrders">0</strong>
+                    </article>
+                    <article class="metric-card">
+                        <span>Completed</span>
+                        <strong id="analyticsCompletedOrders">0</strong>
+                    </article>
+                    <article class="metric-card">
+                        <span>Open Orders</span>
+                        <strong id="analyticsActiveOrders">0</strong>
+                    </article>
+                    <article class="metric-card">
+                        <span>Revenue</span>
+                        <strong id="analyticsTotalRevenue">$0.00</strong>
+                    </article>
+                    <article class="metric-card">
+                        <span>Avg Order</span>
+                        <strong id="analyticsAverageOrderValue">$0.00</strong>
+                    </article>
+                    <article class="metric-card">
+                        <span>Top Product</span>
+                        <strong id="analyticsTopProduct">None</strong>
+                    </article>
+                </div>
+
+                <div class="analytics-grid">
+                    <div class="mini-panel">
+                        <h4>Revenue By Product</h4>
+                        <div id="revenueByProduct" class="stack-list"></div>
+                    </div>
+                    <div class="mini-panel">
+                        <h4>Orders By Status</h4>
+                        <div id="ordersByStatus" class="status-list"></div>
+                    </div>
+                </div>
+
+                <div class="mini-panel recent-panel">
+                    <h4>Recent Orders</h4>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Order</th>
+                                    <th>Status</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentOrders"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section class="dashboard-panel">
+                <div class="section-header">
+                    <h3>Products</h3>
+                    <select id="productFilter" aria-label="Filter products by category"></select>
+                </div>
+
+                <form id="productForm" class="product-form">
+                    <input type="hidden" id="productId">
+
+                    <label for="productName">
+                        Name
+                        <input type="text" id="productName" maxlength="80" required>
+                    </label>
+
+                    <div class="form-grid">
+                        <label for="productPrice">
+                            Price
+                            <input type="number" id="productPrice" min="0.01" step="0.01" required>
+                        </label>
+
+                        <label for="productCategory">
+                            Category
+                            <select id="productCategory" required></select>
+                        </label>
+                    </div>
+
+                    <label class="checkbox-row" for="productActive">
+                        <input type="checkbox" id="productActive" checked>
+                        Active
+                    </label>
+
+                    <div class="form-actions">
+                        <button type="submit" id="saveProduct" class="primary-btn">Save Product</button>
+                        <button type="button" id="cancelEdit" class="secondary-btn">Cancel</button>
+                    </div>
+
+                    <p id="productMessage" role="status"></p>
+                </form>
+
+                <div class="table-wrap product-table-wrap">
+                    <table class="product-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Category</th>
+                                <th>Price</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+        </aside>
     </main>
 
     <script src="cashier.js"></script>
