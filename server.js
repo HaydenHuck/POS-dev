@@ -17,7 +17,9 @@ const STATUS_TRANSITIONS = {
     Completed: []
 };
 
+const PAYMENT_METHODS = ["Cash", "Card", "Mobile Pay", "Other"];
 const PRODUCT_CATEGORIES = ["Coffee", "Tea", "Bakery", "Food", "Other"];
+const TAX_RATE = 0.08;
 const DEFAULT_PRODUCTS = [
     { id: 1, name: "Coffee", price: 3, category: "Coffee" },
     { id: 2, name: "Latte", price: 4, category: "Coffee" },
@@ -48,7 +50,11 @@ function createSchema() {
             id INTEGER PRIMARY KEY,
             date TEXT NOT NULL,
             customer_name TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'New'
+            status TEXT NOT NULL DEFAULT 'New',
+            payment_method TEXT NOT NULL DEFAULT 'Other',
+            subtotal REAL NOT NULL DEFAULT 0,
+            tax REAL NOT NULL DEFAULT 0,
+            total REAL NOT NULL DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS order_items (
@@ -87,6 +93,38 @@ function getColumnNames(tableName) {
 
 function hasLegacySqliteOrders() {
     return tableExists("orders") && getColumnNames("orders").includes("items");
+}
+
+function ensureOrderCheckoutColumns() {
+    if (!tableExists("orders")) {
+        return;
+    }
+
+    const columns = getColumnNames("orders");
+    const requiredColumns = [
+        {
+            name: "payment_method",
+            definition: "TEXT NOT NULL DEFAULT 'Other'"
+        },
+        {
+            name: "subtotal",
+            definition: "REAL NOT NULL DEFAULT 0"
+        },
+        {
+            name: "tax",
+            definition: "REAL NOT NULL DEFAULT 0"
+        },
+        {
+            name: "total",
+            definition: "REAL NOT NULL DEFAULT 0"
+        }
+    ];
+
+    requiredColumns.forEach(column => {
+        if (!columns.includes(column.name)) {
+            db.exec(`ALTER TABLE orders ADD COLUMN ${column.name} ${column.definition}`);
+        }
+    });
 }
 
 function withTransaction(callback) {
@@ -135,19 +173,45 @@ function prepareStatements() {
             WHERE id = ?
         `),
         insertOrder: db.prepare(`
-            INSERT INTO orders (id, date, customer_name, status)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO orders (
+                id,
+                date,
+                customer_name,
+                status,
+                payment_method,
+                subtotal,
+                tax,
+                total
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `),
         insertOrderIfMissing: db.prepare(`
-            INSERT OR IGNORE INTO orders (id, date, customer_name, status)
-            VALUES (?, ?, ?, ?)
+            INSERT OR IGNORE INTO orders (
+                id,
+                date,
+                customer_name,
+                status,
+                payment_method,
+                subtotal,
+                tax,
+                total
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `),
         insertItem: db.prepare(`
             INSERT INTO order_items (order_id, item_id, name, price, quantity)
             VALUES (?, ?, ?, ?, ?)
         `),
         selectOrders: db.prepare(`
-            SELECT id, date, customer_name AS customerName, status
+            SELECT
+                id,
+                date,
+                customer_name AS customerName,
+                status,
+                payment_method AS paymentMethod,
+                subtotal,
+                tax,
+                total
             FROM orders
             ORDER BY id ASC
         `),
@@ -196,6 +260,24 @@ function formatProduct(row) {
     };
 }
 
+function roundMoney(value) {
+    return Math.round((Number(value) || 0) * 100) / 100;
+}
+
+function calculateOrderTotals(items) {
+    const subtotal = roundMoney(items.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+    ));
+    const tax = roundMoney(subtotal * TAX_RATE);
+
+    return {
+        subtotal,
+        tax,
+        total: roundMoney(subtotal + tax)
+    };
+}
+
 function insertOrderWithItems(statements, order, ignoreExisting = false) {
     const insertStatement = ignoreExisting
         ? statements.insertOrderIfMissing
@@ -205,7 +287,11 @@ function insertOrderWithItems(statements, order, ignoreExisting = false) {
         order.id,
         order.date,
         order.customerName || "Guest",
-        order.status || "New"
+        order.status || "New",
+        order.paymentMethod || "Other",
+        order.subtotal || 0,
+        order.tax || 0,
+        order.total || 0
     );
 
     if (ignoreExisting && result.changes === 0) {
@@ -236,9 +322,14 @@ function migrateLegacySqliteOrders() {
         `).all();
 
         legacyOrders.forEach(order => {
+            const items = JSON.parse(order.items || "[]");
+            const totals = calculateOrderTotals(items);
+
             insertOrderWithItems(statements, {
                 ...order,
-                items: JSON.parse(order.items || "[]")
+                ...totals,
+                paymentMethod: "Other",
+                items
             });
         });
 
@@ -256,7 +347,40 @@ function migrateJsonOrders(statements) {
 
     withTransaction(() => {
         orders.forEach(order => {
-            insertOrderWithItems(statements, order, true);
+            const items = order.items || [];
+            const totals = calculateOrderTotals(items);
+
+            insertOrderWithItems(statements, {
+                ...order,
+                ...totals,
+                paymentMethod: order.paymentMethod || order.payment_method || "Other",
+                items
+            }, true);
+        });
+    });
+}
+
+function backfillOrderTotals() {
+    const rows = db.prepare(`
+        SELECT id
+        FROM orders
+        WHERE subtotal = 0 AND tax = 0 AND total = 0
+    `).all();
+    const selectItems = db.prepare(`
+        SELECT price, quantity
+        FROM order_items
+        WHERE order_id = ?
+    `);
+    const updateTotals = db.prepare(`
+        UPDATE orders
+        SET subtotal = ?, tax = ?, total = ?
+        WHERE id = ?
+    `);
+
+    withTransaction(() => {
+        rows.forEach(order => {
+            const totals = calculateOrderTotals(selectItems.all(order.id));
+            updateTotals.run(totals.subtotal, totals.tax, totals.total, order.id);
         });
     });
 }
@@ -266,11 +390,13 @@ if (hasLegacySqliteOrders()) {
 }
 
 createSchema();
+ensureOrderCheckoutColumns();
 
 const statements = prepareStatements();
 
 seedDefaultProducts(statements);
 migrateJsonOrders(statements);
+backfillOrderTotals();
 
 function hasField(object, field) {
     return Object.prototype.hasOwnProperty.call(object, field);
@@ -421,6 +547,22 @@ function sendValidationError(res, errors) {
     });
 }
 
+function validatePaymentMethod(paymentMethod) {
+    const normalizedMethod = typeof paymentMethod === "string" ? paymentMethod.trim() : "";
+
+    if (!PAYMENT_METHODS.includes(normalizedMethod)) {
+        return {
+            value: null,
+            errors: [`Payment method must be one of: ${PAYMENT_METHODS.join(", ")}.`]
+        };
+    }
+
+    return {
+        value: normalizedMethod,
+        errors: []
+    };
+}
+
 function buildOrderItems(items) {
     const errors = [];
     const quantitiesByProduct = new Map();
@@ -542,11 +684,33 @@ function getAnalytics() {
         WHERE status != 'Completed'
     `).get().count;
     const totalRevenue = db.prepare(`
-        SELECT COALESCE(SUM(order_items.price * order_items.quantity), 0) AS total
-        FROM order_items
-        JOIN orders ON orders.id = order_items.order_id
+        SELECT COALESCE(SUM(total), 0) AS total
+        FROM orders
         WHERE orders.status = 'Completed'
     `).get().total;
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+    const todayStartId = todayStart.getTime();
+    const tomorrowStartId = tomorrowStart.getTime();
+    const todayRevenue = db.prepare(`
+        SELECT COALESCE(SUM(total), 0) AS total
+        FROM orders
+        WHERE status = 'Completed' AND id >= ? AND id < ?
+    `).get(todayStartId, tomorrowStartId).total;
+    const todayCompletedOrders = db.prepare(`
+        SELECT COUNT(*) AS count
+        FROM orders
+        WHERE status = 'Completed' AND id >= ? AND id < ?
+    `).get(todayStartId, tomorrowStartId).count;
+    const revenueByPaymentMethod = db.prepare(`
+        SELECT payment_method AS paymentMethod, COALESCE(SUM(total), 0) AS revenue
+        FROM orders
+        WHERE status = 'Completed'
+        GROUP BY payment_method
+        ORDER BY revenue DESC, payment_method ASC
+    `).all();
     const revenueByProduct = db.prepare(`
         SELECT
             item_id AS id,
@@ -570,10 +734,9 @@ function getAnalytics() {
             orders.date,
             orders.customer_name AS customerName,
             orders.status,
-            COALESCE(SUM(order_items.price * order_items.quantity), 0) AS total
+            orders.payment_method AS paymentMethod,
+            orders.total
         FROM orders
-        LEFT JOIN order_items ON orders.id = order_items.order_id
-        GROUP BY orders.id, orders.date, orders.customer_name, orders.status
         ORDER BY orders.id DESC
         LIMIT 8
     `).all();
@@ -587,18 +750,35 @@ function getAnalytics() {
         };
     });
 
+    const roundedRevenueByProduct = revenueByProduct.map(row => ({
+        ...row,
+        revenue: roundMoney(row.revenue)
+    }));
+    const roundedRevenueByPaymentMethod = revenueByPaymentMethod.map(row => ({
+        ...row,
+        revenue: roundMoney(row.revenue)
+    }));
+    const roundedRecentOrders = recentOrders.map(order => ({
+        ...order,
+        total: roundMoney(order.total)
+    }));
+    const roundedTotalRevenue = roundMoney(totalRevenue);
+
     return {
         totalOrders,
         completedOrders,
         activeOrders,
-        totalRevenue,
-        averageOrderValue: completedOrders > 0 ? totalRevenue / completedOrders : 0,
-        topSellingProduct: revenueByProduct.length > 0
-            ? revenueByProduct.slice().sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue)[0]
+        totalRevenue: roundedTotalRevenue,
+        averageOrderValue: completedOrders > 0 ? roundMoney(roundedTotalRevenue / completedOrders) : 0,
+        todayRevenue: roundMoney(todayRevenue),
+        todayCompletedOrders,
+        topSellingProduct: roundedRevenueByProduct.length > 0
+            ? roundedRevenueByProduct.slice().sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue)[0]
             : null,
-        revenueByProduct,
+        revenueByPaymentMethod: roundedRevenueByPaymentMethod,
+        revenueByProduct: roundedRevenueByProduct,
         ordersByStatus,
-        recentOrders
+        recentOrders: roundedRecentOrders
     };
 }
 
@@ -708,17 +888,28 @@ app.get("/api/analytics", (req, res) => {
 app.post("/api/order", (req, res) => {
     const order = req.body || {};
     const orderItems = buildOrderItems(order.items);
+    const payment = validatePaymentMethod(order.paymentMethod || order.payment_method);
+    const errors = [
+        ...orderItems.errors,
+        ...payment.errors
+    ];
 
-    if (orderItems.errors.length > 0) {
-        return sendValidationError(res, orderItems.errors);
+    if (errors.length > 0) {
+        return sendValidationError(res, errors);
     }
+
+    const totals = calculateOrderTotals(orderItems.items);
 
     const orderRecord = {
         id: Date.now(),
         date: new Date().toLocaleString(),
-        customerName: order.customerName || "Guest",
+        customerName: typeof order.customerName === "string" && order.customerName.trim()
+            ? order.customerName.trim()
+            : "Guest",
         items: orderItems.items,
-        status: "New"
+        status: "New",
+        paymentMethod: payment.value,
+        ...totals
     };
 
     withTransaction(() => {

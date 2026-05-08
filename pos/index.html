@@ -44,6 +44,14 @@
                     <label for="customerName">Customer Name</label>
                     <input type="text" id="customerName" placeholder="Guest">
 
+                    <label for="paymentMethod">Payment Method</label>
+                    <select id="paymentMethod" required>
+                        <option value="Cash">Cash</option>
+                        <option value="Card">Card</option>
+                        <option value="Mobile Pay">Mobile Pay</option>
+                        <option value="Other">Other</option>
+                    </select>
+
                     <div id="orderItems" class="order-list"></div>
 
                     <div class="totals">
@@ -97,6 +105,14 @@
                         <span>Top Product</span>
                         <strong id="analyticsTopProduct">None</strong>
                     </article>
+                    <article class="metric-card">
+                        <span>Today's Revenue</span>
+                        <strong id="analyticsTodayRevenue">$0.00</strong>
+                    </article>
+                    <article class="metric-card">
+                        <span>Today Completed</span>
+                        <strong id="analyticsTodayCompletedOrders">0</strong>
+                    </article>
                 </div>
 
                 <div class="analytics-grid">
@@ -107,6 +123,10 @@
                     <div class="mini-panel">
                         <h4>Orders By Status</h4>
                         <div id="ordersByStatus" class="status-list"></div>
+                    </div>
+                    <div class="mini-panel">
+                        <h4>Revenue By Payment</h4>
+                        <div id="revenueByPaymentMethod" class="status-list"></div>
                     </div>
                 </div>
 
@@ -183,6 +203,38 @@
             </section>
         </aside>
     </main>
+
+    <div id="receiptModal" class="receipt-modal" aria-hidden="true">
+        <div class="modal-backdrop"></div>
+        <section class="receipt-dialog" role="dialog" aria-modal="true" aria-labelledby="receiptTitle">
+            <div class="receipt-header">
+                <div>
+                    <p class="eyebrow">Receipt</p>
+                    <h2 id="receiptTitle">Order Complete</h2>
+                </div>
+                <span id="receiptOrderId" class="subtle-badge">Order</span>
+            </div>
+
+            <div class="receipt-meta">
+                <p><span>Customer</span><strong id="receiptCustomer">Guest</strong></p>
+                <p><span>Date</span><strong id="receiptDate">-</strong></p>
+                <p><span>Payment</span><strong id="receiptPaymentMethod">-</strong></p>
+            </div>
+
+            <div class="receipt-items" id="receiptItems"></div>
+
+            <div class="receipt-totals">
+                <p>Subtotal <span id="receiptSubtotal">$0.00</span></p>
+                <p>Tax <span id="receiptTax">$0.00</span></p>
+                <h3>Total <span id="receiptTotal">$0.00</span></h3>
+            </div>
+
+            <div class="modal-actions">
+                <button id="printReceipt" class="secondary-btn" type="button">Print Receipt</button>
+                <button id="newOrder" class="primary-btn" type="button">New Order</button>
+            </div>
+        </section>
+    </div>
 
     <script src="cashier.js"></script>
 </body>

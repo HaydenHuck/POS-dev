@@ -10,6 +10,7 @@ const orderContainer = document.getElementById("orderItems");
 const message = document.getElementById("message");
 const menuCount = document.getElementById("menuCount");
 const customerName = document.getElementById("customerName");
+const paymentMethod = document.getElementById("paymentMethod");
 const productForm = document.getElementById("productForm");
 const productId = document.getElementById("productId");
 const productName = document.getElementById("productName");
@@ -21,6 +22,10 @@ const productMessage = document.getElementById("productMessage");
 const productTableBody = document.getElementById("productTableBody");
 const saveProduct = document.getElementById("saveProduct");
 const cancelEdit = document.getElementById("cancelEdit");
+const receiptModal = document.getElementById("receiptModal");
+const receiptItems = document.getElementById("receiptItems");
+const printReceiptButton = document.getElementById("printReceipt");
+const newOrderButton = document.getElementById("newOrder");
 
 function formatCurrency(value) {
     return new Intl.NumberFormat("en-US", {
@@ -299,6 +304,7 @@ async function submitOrder() {
             },
             body: JSON.stringify({
                 customerName: customerName.value.trim(),
+                paymentMethod: paymentMethod.value,
                 items: order.map(item => ({
                     id: item.id,
                     quantity: item.quantity
@@ -307,9 +313,7 @@ async function submitOrder() {
         });
 
         setMessage(message, data.message, "success");
-        order = [];
-        customerName.value = "";
-        renderOrder();
+        showReceipt(data.order);
         loadAnalytics();
     } catch (error) {
         setMessage(message, error.message, "error");
@@ -465,9 +469,12 @@ function renderAnalytics(analytics) {
     document.getElementById("analyticsTopProduct").textContent = analytics.topSellingProduct
         ? analytics.topSellingProduct.name
         : "None";
+    document.getElementById("analyticsTodayRevenue").textContent = formatCurrency(analytics.todayRevenue);
+    document.getElementById("analyticsTodayCompletedOrders").textContent = analytics.todayCompletedOrders;
 
     renderRevenueByProduct(analytics.revenueByProduct);
     renderOrdersByStatus(analytics.ordersByStatus);
+    renderRevenueByPaymentMethod(analytics.revenueByPaymentMethod);
     renderRecentOrders(analytics.recentOrders);
 }
 
@@ -534,6 +541,35 @@ function renderOrdersByStatus(rows) {
     });
 }
 
+function renderRevenueByPaymentMethod(rows) {
+    const container = document.getElementById("revenueByPaymentMethod");
+    container.innerHTML = "";
+
+    if (rows.length === 0) {
+        const empty = document.createElement("p");
+        empty.classList.add("empty-state");
+        empty.textContent = "No completed payments yet.";
+        container.appendChild(empty);
+        return;
+    }
+
+    rows.forEach(row => {
+        const item = document.createElement("div");
+        item.classList.add("status-count");
+
+        const method = document.createElement("span");
+        method.classList.add("payment-pill");
+        method.textContent = row.paymentMethod;
+        item.appendChild(method);
+
+        const revenue = document.createElement("strong");
+        revenue.textContent = formatCurrency(row.revenue);
+        item.appendChild(revenue);
+
+        container.appendChild(item);
+    });
+}
+
 function renderRecentOrders(rows) {
     const table = document.getElementById("recentOrders");
     table.innerHTML = "";
@@ -566,9 +602,63 @@ function renderRecentOrders(rows) {
     });
 }
 
+function showReceipt(orderRecord) {
+    document.getElementById("receiptOrderId").textContent = `Order #${orderRecord.id}`;
+    document.getElementById("receiptCustomer").textContent = orderRecord.customerName;
+    document.getElementById("receiptDate").textContent = orderRecord.date;
+    document.getElementById("receiptPaymentMethod").textContent = orderRecord.paymentMethod;
+    document.getElementById("receiptSubtotal").textContent = formatCurrency(orderRecord.subtotal);
+    document.getElementById("receiptTax").textContent = formatCurrency(orderRecord.tax);
+    document.getElementById("receiptTotal").textContent = formatCurrency(orderRecord.total);
+
+    receiptItems.innerHTML = "";
+
+    orderRecord.items.forEach(item => {
+        const row = document.createElement("div");
+        row.classList.add("receipt-item");
+
+        const details = document.createElement("div");
+
+        const name = document.createElement("strong");
+        name.textContent = item.name;
+        details.appendChild(name);
+
+        const quantity = document.createElement("span");
+        quantity.textContent = `${item.quantity} x ${formatCurrency(item.price)}`;
+        details.appendChild(quantity);
+        row.appendChild(details);
+
+        const total = document.createElement("strong");
+        total.textContent = formatCurrency(item.price * item.quantity);
+        row.appendChild(total);
+
+        receiptItems.appendChild(row);
+    });
+
+    receiptModal.setAttribute("aria-hidden", "false");
+}
+
+function closeReceiptAndStartNewOrder() {
+    receiptModal.setAttribute("aria-hidden", "true");
+    order = [];
+    customerName.value = "";
+    paymentMethod.value = "Cash";
+    renderOrder();
+    setMessage(message, "Ready for a new order.", "info");
+}
+
+function printReceipt() {
+    document.body.classList.add("printing-receipt");
+    window.print();
+}
+
 function getStatusClassName(status) {
     return `status-${status.toLowerCase().replace(/\s+/g, "-")}`;
 }
+
+window.addEventListener("afterprint", () => {
+    document.body.classList.remove("printing-receipt");
+});
 
 document.getElementById("clearOrder").addEventListener("click", () => {
     order = [];
@@ -579,6 +669,8 @@ document.getElementById("clearOrder").addEventListener("click", () => {
 document.getElementById("submitOrder").addEventListener("click", submitOrder);
 productForm.addEventListener("submit", submitProductForm);
 productFilter.addEventListener("change", () => refreshProducts());
+printReceiptButton.addEventListener("click", printReceipt);
+newOrderButton.addEventListener("click", closeReceiptAndStartNewOrder);
 cancelEdit.addEventListener("click", () => {
     resetProductForm();
     setMessage(productMessage, "", "");
